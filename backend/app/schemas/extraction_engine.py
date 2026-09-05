@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
 class ReportMetadataSchema(BaseModel):
@@ -8,12 +8,15 @@ class ReportMetadataSchema(BaseModel):
 
 class ExtractedTestItemSchema(BaseModel):
     test_name: str = Field(..., description="Standard clinical test name verbatim from document")
-    value: str = Field(..., description="Observed result string")
+    value: str = Field(..., description="Observed result string (e.g. 145, <0.01, Trace)")
     value_numeric: Optional[float] = Field(None, description="Parsed numeric value, null if qualitative")
+    operator: Optional[str] = Field(None, description="Relational operator e.g. <, <=, >, >=, =")
     unit: Optional[str] = Field(None, description="Unit of measurement e.g. mg/dL, mmol/L, or null")
     reference_range_raw: Optional[str] = Field(None, description="Reference range explicitly printed in document or null")
+    source_provided: bool = Field(True, description="True ONLY if reference range was printed in source report; never hallucinated")
     raw_snippet: str = Field(..., description="Verbatim quote from source document for verification and audit")
     confidence: float = Field(1.0, ge=0.0, le=1.0, description="Confidence score of the extraction")
+    provenance: Optional[Dict[str, Any]] = Field(default_factory=lambda: {"source": "ai_extracted", "edited_by_human": False})
 
 class ExtractionResultSchema(BaseModel):
     report_metadata: ReportMetadataSchema

@@ -15,7 +15,7 @@ from app.schemas.report import MedicalReportResponse
 from app.schemas.extracted_test import ExtractedTestResponse
 from app.services.pdf_parser import parse_pdf_document, find_snippet_in_text
 from app.services.ai_extractor import extract_structured_tests_from_report
-from app.core.flag_calculator import parse_reference_range, compute_flag
+from app.core.flag_calculator import parse_reference_range, parse_reference_range_with_provenance, compute_flag
 from app.core.provenance import SourceProvenance, FlagCategory
 from app.services.audit_service import log_audit_event
 
@@ -29,77 +29,54 @@ async def list_patient_reports(patient_id: str, db: AsyncSession = Depends(get_d
         .order_by(MedicalReport.uploaded_at.desc())
     )
     reports = result.scalars().all()
-    
-    # Enrich with test counts
-    responses = []
-    for r in reports:
-        count_res = await db.execute(
-            select(func.count(ExtractedTest.id)).where(ExtractedTest.report_id == r.id)
-        )
-        test_count = count_res.scalar() or 0
-        resp = MedicalReportResponse.model_validate(r)
-        resp.test_count = test_count
-        responses.append(resp)
-    return responses
+    return reports
 
-@router.post("/patients/{patient_id}/reports", response_model=MedicalReportResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/patients/{patient_id}/reports", response_model=MedicalReportResponse)
 async def upload_medical_report(
     patient_id: str,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db)
 ):
-    patient = await db.get(Patient, patient_id)
+    # Verify patient exists
+    p_check = await db.execute(select(Patient).where(Patient.id == patient_id))
+    patient = p_check.scalar_one_or_none()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
-    filename = file.filename or "report.pdf"
-    ext = Path(filename).suffix.lower()
-    if ext not in [".pdf", ".png", ".jpg", ".jpeg"]:
-        raise HTTPException(status_code=400, detail="Only PDF and image files (PNG/JPG) are supported")
+    # Ensure storage directory exists
+    storage_dir = Path("backend/storage/reports")
+    storage_dir.mkdir(parents=True, exist_ok=True)
 
-    file_uuid = str(uuid.uuid4())
-    stored_filename = f"{file_uuid}{ext}"
-    stored_filepath = settings.REPORTS_DIR / stored_filename
+    file_extension = Path(file.filename or "report.pdf").suffix.lower()
+    unique_filename = f"{uuid.uuid4()}_{file.filename}"
+    file_path = storage_dir / unique_filename
 
-    # Save to disk
-    with open(stored_filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # Read and persist file
+    contents = await file.read()
+    with open(file_path, "wb") as f:
+        f.write(contents)
 
-    # Parse document text
+    # Extract text and metadata
     raw_text = ""
     page_count = 1
-    if ext == ".pdf":
-        parsed_doc = parse_pdf_document(stored_filepath)
-        raw_text = parsed_doc["raw_text"]
-        page_count = parsed_doc["page_count"]
+    if file_extension == ".pdf":
+        raw_text, page_count = parse_pdf_document(file_path)
     else:
-        raw_text = f"Scanned report image: {filename}"
+        try:
+            raw_text = contents.decode("utf-8", errors="ignore")
+        except Exception:
+            raw_text = "Binary report data"
 
-    # Run AI extraction pipeline
+    # Extract clinical lab tests via zero-hallucination extraction engine
     extraction_result = await extract_structured_tests_from_report(raw_text)
 
-    parsed_date = None
-    if extraction_result.report_metadata.report_date:
-        try:
-            # Normalize date
-            date_str = extraction_result.report_metadata.report_date.replace("/", "-")
-            parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        except Exception:
-            try:
-                parsed_date = datetime.strptime(date_str, "%m-%d-%Y").date()
-            except Exception:
-                parsed_date = date.today()
-    else:
-        parsed_date = date.today()
-
-    # Create MedicalReport record
+    # Persist report entity
     report = MedicalReport(
-        id=file_uuid,
         patient_id=patient_id,
-        original_filename=filename,
-        file_url=f"/storage/reports/{stored_filename}",
-        file_type="pdf" if ext == ".pdf" else "image",
-        report_date=parsed_date,
+        original_filename=file.filename or "unknown.pdf",
+        file_url=f"/storage/reports/{unique_filename}",
+        file_type=file_extension.replace(".", "") or "pdf",
+        report_date=extraction_result.report_metadata.report_date,
         report_type=extraction_result.report_metadata.report_type or "Laboratory Report",
         facility_name=extraction_result.report_metadata.facility_name,
         raw_text=raw_text,
@@ -111,15 +88,17 @@ async def upload_medical_report(
     # Save extracted tests with human-in-the-loop pending verification
     created_tests_count = 0
     for test_item in extraction_result.extracted_tests:
-        # Compute range bounds purely from source text
-        low_bound, high_bound = parse_reference_range(test_item.reference_range_raw)
+        # Compute range bounds purely from source text with zero hallucination
+        low_bound, high_bound, source_provided = parse_reference_range_with_provenance(test_item.reference_range_raw)
         
         # Deterministically compute flag
         computed_flag = compute_flag(
             value_numeric=test_item.value_numeric,
             low=low_bound,
             high=high_bound,
-            qualitative_value=test_item.value
+            qualitative_value=test_item.value,
+            source_provided=source_provided,
+            operator=test_item.operator
         )
 
         test_record = ExtractedTest(

@@ -13,6 +13,7 @@ import {
 import { ExtractedTest, MedicalReport } from '../types';
 import { FlagBadge } from '../components/FlagBadge';
 import { ProvenanceBadge } from '../components/ProvenanceBadge';
+import { AriaLiveRegion } from '../components/AriaLiveRegion';
 import { api } from '../api/client';
 
 interface Props {
@@ -181,6 +182,8 @@ export const VerificationView: React.FC<Props> = ({
           )}
         </div>
       </div>
+
+      <AriaLiveRegion message={statusMessage || (unverifiedTests.length > 0 ? `${unverifiedTests.length} laboratory tests pending verification.` : 'All laboratory tests are verified.')} />
 
       {statusMessage && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2">

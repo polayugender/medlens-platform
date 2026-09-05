@@ -131,6 +131,9 @@ async def _generate_claude_summary(prompt_payload: str, api_key: str) -> Optiona
         print(f"Claude summary error: {e}")
     return None
 
+from app.core.safety_guardrails import enforce_clinical_safety_guardrails
+from app.core.phi_sanitizer import sanitize_phi_for_llm
+
 async def generate_patient_summary(
     patient_data: Dict[str, Any],
     intake_data: Optional[Dict[str, Any]],
@@ -140,9 +143,10 @@ async def generate_patient_summary(
     Orchestrates the generation of the plain-language clinical summary.
     Enforces non-diagnostic guardrails and provenance clarity.
     """
-    prompt_payload = f"""
+    patient_name = patient_data.get('name', '')
+    raw_prompt_payload = f"""
     PATIENT DEMOGRAPHICS:
-    Name: {patient_data.get('name')}
+    Name: {patient_name}
     DOB: {patient_data.get('dob')}
     Sex: {patient_data.get('sex')}
 
@@ -153,10 +157,19 @@ async def generate_patient_summary(
     {verified_tests}
     """
 
-    if settings.ANTHROPIC_API_KEY:
-        claude_summary = await _generate_claude_summary(prompt_payload, settings.ANTHROPIC_API_KEY)
-        if claude_summary:
-            return claude_summary
+    # De-identify PHI before external LLM transmission
+    safe_prompt_payload, _ = sanitize_phi_for_llm(raw_prompt_payload, patient_name=patient_name)
 
-    # Fallback to deterministic clinical narrative generator
-    return _generate_deterministic_clinical_summary(patient_data, intake_data, verified_tests)
+    summary_text = None
+    if settings.ANTHROPIC_API_KEY:
+        claude_summary = await _generate_claude_summary(safe_prompt_payload, settings.ANTHROPIC_API_KEY)
+        if claude_summary:
+            summary_text = claude_summary
+
+    if not summary_text:
+        # Fallback to deterministic clinical narrative generator
+        summary_text = _generate_deterministic_clinical_summary(patient_data, intake_data, verified_tests)
+
+    # Strictly enforce clinical safety guardrails (block diagnoses, block dosages, inject disclaimer)
+    safe_summary, _, _ = enforce_clinical_safety_guardrails(summary_text)
+    return safe_summary

@@ -4,7 +4,12 @@ import httpx
 from typing import Dict, Any, List, Optional
 from app.config import settings
 from app.core.prompts import EXTRACTION_SYSTEM_PROMPT
-from app.core.flag_calculator import parse_reference_range, compute_flag
+from app.core.flag_calculator import (
+    parse_reference_range,
+    parse_reference_range_with_provenance,
+    parse_result_value,
+    compute_flag
+)
 from app.schemas.extraction_engine import ExtractionResultSchema, ExtractedTestItemSchema, ReportMetadataSchema
 
 def _extract_via_deterministic_parser(raw_text: str) -> Dict[str, Any]:
@@ -182,8 +187,12 @@ def _extract_via_deterministic_parser(raw_text: str) -> Dict[str, Any]:
         "extracted_tests": extracted_tests
     }
 
+from app.core.phi_sanitizer import sanitize_phi_for_llm
+
 async def _extract_via_claude(raw_text: str, api_key: str) -> Optional[Dict[str, Any]]:
-    """Calls Anthropic Claude Messages API with extraction prompt and JSON schema."""
+    """Calls Anthropic Claude Messages API with extraction prompt and JSON schema after PHI sanitization."""
+    # De-identify PHI before external transmission
+    sanitized_text, _ = sanitize_phi_for_llm(raw_text)
     try:
         async with httpx.AsyncClient(timeout=45.0) as client:
             response = await client.post(
@@ -200,7 +209,7 @@ async def _extract_via_claude(raw_text: str, api_key: str) -> Optional[Dict[str,
                     "messages": [
                         {
                             "role": "user",
-                            "content": f"Extract structured data from this medical report:\n\n{raw_text}"
+                            "content": f"Extract structured data from this medical report:\n\n{sanitized_text}"
                         }
                     ]
                 }
@@ -241,14 +250,26 @@ async def extract_structured_tests_from_report(raw_text: str) -> ExtractionResul
 
     test_items: List[ExtractedTestItemSchema] = []
     for item in extracted_data.get("extracted_tests", []):
+        raw_val = str(item["value"])
+        _, num_val, op = parse_result_value(raw_val)
+        ref_raw = item.get("reference_range_raw")
+        _, _, source_provided = parse_reference_range_with_provenance(ref_raw)
+
         test_items.append(ExtractedTestItemSchema(
             test_name=item["test_name"],
-            value=str(item["value"]),
-            value_numeric=item.get("value_numeric"),
+            value=raw_val,
+            value_numeric=num_val if num_val is not None else item.get("value_numeric"),
+            operator=op or item.get("operator"),
             unit=item.get("unit"),
-            reference_range_raw=item.get("reference_range_raw"),
+            reference_range_raw=ref_raw,
+            source_provided=source_provided,
             raw_snippet=item.get("raw_snippet", f"{item['test_name']}: {item['value']}"),
-            confidence=float(item.get("confidence", 1.0))
+            confidence=float(item.get("confidence", 1.0)),
+            provenance={
+                "source": "ai_extracted",
+                "confidence": float(item.get("confidence", 1.0)),
+                "edited_by_human": False
+            }
         ))
 
     return ExtractionResultSchema(

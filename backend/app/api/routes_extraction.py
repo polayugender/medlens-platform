@@ -11,7 +11,8 @@ from app.schemas.extracted_test import (
     ExtractedTestUpdate,
     VerifyTestsBatchRequest
 )
-from app.core.flag_calculator import parse_reference_range, compute_flag
+from app.core.flag_calculator import parse_reference_range, parse_reference_range_with_provenance, compute_flag
+from app.core.provenance import SourceProvenance
 from app.services.audit_service import log_audit_event
 
 router = APIRouter(prefix="", tags=["Extraction & Verification"])
@@ -26,39 +27,43 @@ async def list_patient_tests(
     query = select(ExtractedTest).where(ExtractedTest.patient_id == patient_id)
     if verified is not None:
         query = query.where(ExtractedTest.verified == verified)
-    if report_id:
+    if report_id is not None:
         query = query.where(ExtractedTest.report_id == report_id)
-
-    query = query.order_by(ExtractedTest.created_at.asc())
+    
+    query = query.order_by(ExtractedTest.test_name.asc(), ExtractedTest.created_at.desc())
     result = await db.execute(query)
-    tests = result.scalars().all()
-    return tests
+    return result.scalars().all()
 
-@router.put("/tests/{test_id}", response_model=ExtractedTestResponse)
+@router.patch("/tests/{test_id}", response_model=ExtractedTestResponse)
 async def update_extracted_test(
     test_id: str,
     payload: ExtractedTestUpdate,
-    actor: str = Query("User", description="Identity of person editing"),
+    actor: str = Query("Clinician", description="Username or ID of the reviewer"),
     db: AsyncSession = Depends(get_db)
 ):
-    test = await db.get(ExtractedTest, test_id)
+    result = await db.execute(select(ExtractedTest).where(ExtractedTest.id == test_id))
+    test = result.scalar_one_or_none()
     if not test:
-        raise HTTPException(status_code=404, detail="Test not found")
+        raise HTTPException(status_code=404, detail="Extracted test not found")
 
+    # Snapshot before state for audit
     before_state = {
         "test_name": test.test_name,
         "value": test.value,
+        "value_numeric": test.value_numeric,
         "unit": test.unit,
         "reference_range_raw": test.reference_range_raw,
         "flag": test.flag,
-        "verified": test.verified
+        "verified": test.verified,
+        "source": test.source
     }
 
+    # Apply updates
     if payload.test_name is not None:
         test.test_name = payload.test_name
+
     if payload.value is not None:
         test.value = payload.value
-        # Re-parse numeric if not supplied
         if payload.value_numeric is not None:
             test.value_numeric = payload.value_numeric
         else:
@@ -72,11 +77,14 @@ async def update_extracted_test(
     if payload.unit is not None:
         test.unit = payload.unit
 
+    source_provided = True
     if payload.reference_range_raw is not None:
         test.reference_range_raw = payload.reference_range_raw
-        low_bound, high_bound = parse_reference_range(payload.reference_range_raw)
+        low_bound, high_bound, source_provided = parse_reference_range_with_provenance(payload.reference_range_raw)
         test.reference_range_low = low_bound
         test.reference_range_high = high_bound
+    else:
+        low_bound, high_bound, source_provided = parse_reference_range_with_provenance(test.reference_range_raw)
 
     if payload.verified is not None:
         test.verified = payload.verified
@@ -84,12 +92,16 @@ async def update_extracted_test(
             test.verified_by = actor
             test.verified_at = datetime.now(timezone.utc)
 
-    # Deterministically re-compute flag with source range
+    # Provenance tracking: mark as CLINICIAN_EDITED
+    test.source = SourceProvenance.CLINICIAN_EDITED.value
+
+    # Deterministically re-compute flag with zero hallucination
     test.flag = compute_flag(
         value_numeric=test.value_numeric,
         low=test.reference_range_low,
         high=test.reference_range_high,
-        qualitative_value=test.value
+        qualitative_value=test.value,
+        source_provided=source_provided
     ).value
 
     await db.commit()
@@ -145,8 +157,8 @@ async def verify_tests_batch(
         test.unit = item.unit
         test.reference_range_raw = item.reference_range_raw
         
-        # Parse bounds
-        low_bound, high_bound = parse_reference_range(item.reference_range_raw)
+        # Parse bounds with zero hallucination
+        low_bound, high_bound, source_provided = parse_reference_range_with_provenance(item.reference_range_raw)
         test.reference_range_low = low_bound
         test.reference_range_high = high_bound
         
@@ -163,13 +175,15 @@ async def verify_tests_batch(
             value_numeric=test.value_numeric,
             low=low_bound,
             high=high_bound,
-            qualitative_value=test.value
+            qualitative_value=test.value,
+            source_provided=source_provided
         ).value
 
-        # Mark verified
+        # Mark verified by clinician
         test.verified = True
         test.verified_by = payload.verified_by
         test.verified_at = now
+        test.source = SourceProvenance.CLINICIAN_EDITED.value
 
         updated_tests.append(test)
 
