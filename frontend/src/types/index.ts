@@ -14,6 +14,11 @@ export interface Patient {
   name: string;
   dob: string;
   sex: string;
+  phone?: string;
+  abha_id?: string;
+  state?: string;
+  city?: string;
+  emergency_contact?: string;
   created_at: string;
   updated_at: string;
 }

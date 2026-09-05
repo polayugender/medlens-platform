@@ -29,6 +29,13 @@ def verify_all():
 
     print("[TEST] Testing /api/patients...")
     patients = get("/patients")
+    if len(patients) < 3 or not any("Eleanor" in p.get("name", "") for p in patients):
+        print("  -> Populating demo seed data for live API verification...")
+        try:
+            post("/system/seed-demo", {})
+            patients = get("/patients")
+        except Exception as err:
+            print("  -> Seed demo fallback error:", err)
     assert len(patients) >= 3
     print(f"  -> {len(patients)} patients found:")
     for p in patients:

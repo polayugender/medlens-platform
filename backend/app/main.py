@@ -11,6 +11,7 @@ from app.api.routes_extraction import router as extraction_router
 from app.api.routes_summary import router as summary_router
 from app.api.routes_audit import router as audit_router
 from app.api.routes_analytics import router as analytics_router
+from app.api.routes_system import router as system_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -46,6 +47,7 @@ app.include_router(extraction_router, prefix=settings.API_V1_STR)
 app.include_router(summary_router, prefix=settings.API_V1_STR)
 app.include_router(audit_router, prefix=settings.API_V1_STR)
 app.include_router(analytics_router, prefix=settings.API_V1_STR)
+app.include_router(system_router, prefix=settings.API_V1_STR)
 
 @app.get("/api/health")
 async def health_check():

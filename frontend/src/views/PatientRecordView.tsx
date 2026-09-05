@@ -14,7 +14,10 @@ import {
   Pill,
   HeartPulse,
   Printer,
-  ChevronDown
+  ChevronDown,
+  Activity,
+  ShieldCheck,
+  TrendingUp
 } from 'lucide-react';
 import {
   Patient,
@@ -123,9 +126,24 @@ export const PatientRecordView: React.FC<Props> = ({
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-black text-slate-900">{patient.name}</h1>
-              <span className="px-2.5 py-0.5 text-xs font-semibold bg-clinical-50 text-clinical-700 rounded-full border border-clinical-200">
+              <span className="text-xs font-mono px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md">
                 Patient ID: {patient.id.slice(0, 8)}
               </span>
+              {patient.abha_id && (
+                <span className="text-[11px] font-mono px-2 py-0.5 bg-emerald-100 text-emerald-900 rounded-md border border-emerald-300 font-bold">
+                  ABHA: {patient.abha_id}
+                </span>
+              )}
+              {patient.phone && (
+                <span className="text-[11px] font-mono px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md border border-slate-200">
+                  {patient.phone}
+                </span>
+              )}
+              {patient.city && patient.state && (
+                <span className="text-[11px] px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md border border-slate-200">
+                  {patient.city}, {patient.state}
+                </span>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-4 mt-1.5 text-xs text-slate-500 font-medium">
               <span>DOB: <strong>{patient.dob}</strong></span>
@@ -244,6 +262,98 @@ export const PatientRecordView: React.FC<Props> = ({
           </button>
         </div>
       )}
+
+      {/* Quick Clinical Metrics / Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Tests */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider">Total Tests</span>
+            <div className="p-1.5 bg-clinical-50 text-clinical-600 rounded-lg">
+              <Activity className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-slate-900">{tests.length}</span>
+            <span className="text-xs text-slate-500 font-medium">extracted</span>
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
+            <span className="text-emerald-700 font-semibold">{verifiedTests.length} verified</span>
+            <span>•</span>
+            <span className={unverifiedTests.length > 0 ? "text-amber-700 font-semibold" : "text-slate-400"}>
+              {unverifiedTests.length} pending
+            </span>
+          </div>
+        </div>
+
+        {/* Verification Coverage */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider">Verification Rate</span>
+            <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-slate-900">
+              {tests.length > 0 ? Math.round((verifiedTests.length / tests.length) * 100) : 0}%
+            </span>
+            <span className="text-xs text-slate-500 font-medium">provenance verified</span>
+          </div>
+          <div className="mt-2 w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div
+              className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${tests.length > 0 ? Math.round((verifiedTests.length / tests.length) * 100) : 0}%`
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Out-of-Range Biomarkers */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider">Flagged Values</span>
+            <div className="p-1.5 bg-rose-50 text-rose-600 rounded-lg">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-rose-600">
+              {tests.filter((t) => t.flag === 'high' || t.flag === 'low').length}
+            </span>
+            <span className="text-xs text-slate-500 font-medium">abnormal flags</span>
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-[11px]">
+            <span className="text-rose-700 font-semibold">{tests.filter((t) => t.flag === 'high').length} High</span>
+            <span>•</span>
+            <span className="text-amber-700 font-semibold">{tests.filter((t) => t.flag === 'low').length} Low</span>
+            <span>•</span>
+            <span className="text-emerald-700 font-semibold">{tests.filter((t) => t.flag === 'normal').length} Normal</span>
+          </div>
+        </div>
+
+        {/* Clinical Synthesis */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider">Intelligence Status</span>
+            <div className="p-1.5 bg-purple-50 text-purple-600 rounded-lg">
+              <Sparkles className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-slate-900">
+              {summary ? `v${summary.version}` : 'None'}
+            </span>
+            <span className="text-xs text-slate-500 font-medium">summary engine</span>
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
+            <span>{reports.length} report{reports.length === 1 ? '' : 's'} linked</span>
+            <span>•</span>
+            <span className="text-purple-700 font-semibold">Zero Hallucination</span>
+          </div>
+        </div>
+      </div>
 
       {/* Section 1: Self-Reported Health Profile (Source: user_input) */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">

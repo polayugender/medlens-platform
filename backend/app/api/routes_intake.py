@@ -38,6 +38,7 @@ async def get_intake_history(patient_id: str, db: AsyncSession = Depends(get_db)
 async def create_intake_record(
     patient_id: str,
     payload: IntakeCreate,
+    actor: Optional[str] = "User",
     db: AsyncSession = Depends(get_db)
 ):
     patient = await db.get(Patient, patient_id)
@@ -71,11 +72,12 @@ async def create_intake_record(
     await db.commit()
     await db.refresh(record)
 
+    action_name = "INTAKE_CREATED" if actor == "patient_self_service" else "INTAKE_SUBMITTED"
     await log_audit_event(
         db=db,
         patient_id=patient_id,
-        actor="User",
-        action="INTAKE_SUBMITTED",
+        actor=actor or "User",
+        action=action_name,
         entity="IntakeRecord",
         entity_id=record.id,
         after_state={

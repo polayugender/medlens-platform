@@ -14,6 +14,11 @@ class Patient(Base):
     name = Column(String(255), nullable=False)
     dob = Column(Date, nullable=False)
     sex = Column(String(32), nullable=False)
+    phone = Column(String(32), nullable=True)
+    abha_id = Column(String(64), nullable=True)
+    state = Column(String(64), nullable=True)
+    city = Column(String(64), nullable=True)
+    emergency_contact = Column(String(128), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

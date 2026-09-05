@@ -26,5 +26,22 @@ async def get_db():
             await session.close()
 
 async def init_db():
+    from sqlalchemy import text
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        def sync_migrations(connection):
+            res = connection.execute(text("PRAGMA table_info(patients)")).fetchall()
+            existing = [c[1] for c in res]
+            new_cols = [
+                ("phone", "VARCHAR(32)"),
+                ("abha_id", "VARCHAR(64)"),
+                ("state", "VARCHAR(64)"),
+                ("city", "VARCHAR(64)"),
+                ("emergency_contact", "VARCHAR(128)"),
+            ]
+            for col, col_type in new_cols:
+                if col not in existing:
+                    connection.execute(text(f"ALTER TABLE patients ADD COLUMN {col} {col_type}"))
+
+        await conn.run_sync(sync_migrations)

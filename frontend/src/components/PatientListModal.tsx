@@ -71,6 +71,7 @@ export const PatientListModal: React.FC<Props> = ({
               Full Legal Name
             </label>
             <input
+              id="new-patient-name"
               type="text"
               required
               placeholder="e.g. Sarah Jenkins"
@@ -86,6 +87,7 @@ export const PatientListModal: React.FC<Props> = ({
                 Date of Birth
               </label>
               <input
+                id="new-patient-dob"
                 type="date"
                 required
                 value={dob}
@@ -98,6 +100,7 @@ export const PatientListModal: React.FC<Props> = ({
                 Biological Sex
               </label>
               <select
+                id="new-patient-sex"
                 value={sex}
                 onChange={(e) => setSex(e.target.value)}
                 className="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-clinical-500 focus:outline-none bg-white"
@@ -118,6 +121,7 @@ export const PatientListModal: React.FC<Props> = ({
               Cancel
             </button>
             <button
+              id="submit-patient-btn"
               type="submit"
               disabled={loading}
               className="px-4 py-2 bg-clinical-600 hover:bg-clinical-700 text-white text-xs font-semibold rounded-lg shadow-sm disabled:opacity-50 transition-colors"

@@ -130,10 +130,34 @@ export const ReportsUploadView: React.FC<Props> = ({
           }`}
         >
           {uploading ? (
-            <div className="py-6 space-y-3">
+            <div className="py-6 space-y-5 max-w-lg mx-auto">
               <div className="w-12 h-12 border-4 border-clinical-600 border-t-transparent rounded-full animate-spin mx-auto" />
-              <div className="text-sm font-bold text-slate-800 animate-pulse">
+              <div className="text-sm font-bold text-slate-800">
                 {uploadProgressMsg}
+              </div>
+              {/* Multi-step progress track */}
+              <div className="grid grid-cols-4 gap-2 pt-2">
+                {[
+                  { title: 'Ingestion', done: true },
+                  { title: 'Extraction', done: uploadProgressMsg?.includes('Extraction') || uploadProgressMsg?.includes('Computing') || uploadProgressMsg?.includes('complete') },
+                  { title: 'Flagging', done: uploadProgressMsg?.includes('Computing') || uploadProgressMsg?.includes('complete') },
+                  { title: 'Ready', done: uploadProgressMsg?.includes('complete') },
+                ].map((step, idx) => (
+                  <div key={idx} className="flex flex-col items-center">
+                    <div
+                      className={`w-full h-1.5 rounded-full transition-all duration-300 ${
+                        step.done ? 'bg-clinical-600' : 'bg-slate-200'
+                      }`}
+                    />
+                    <span
+                      className={`text-[10px] mt-1 font-semibold ${
+                        step.done ? 'text-clinical-700' : 'text-slate-400'
+                      }`}
+                    >
+                      {step.title}
+                    </span>
+                  </div>
+                ))}
               </div>
               <p className="text-xs text-slate-400">
                 Adhering to zero-hallucination extraction schema & source range verification

@@ -8,19 +8,31 @@ async def verify_export_ui():
         page = await browser.new_page(viewport={"width": 1280, "height": 800})
         
         # Navigate to frontend
-        await page.goto("http://127.0.0.1:5173/")
-        await page.wait_for_selector("#export-record-dropdown-btn", timeout=15000)
-        
-        # Click Eleanor Vance or stay on first patient
-        await page.click("text=Eleanor Vance")
+        await page.goto("http://127.0.0.1:5173/", wait_until="networkidle")
         await page.wait_for_timeout(1000)
-        
+
+        # If on welcome portal, load demo
+        demo_btn = page.locator("#welcome-load-demo-btn")
+        if await demo_btn.is_visible():
+            await demo_btn.click()
+            await page.wait_for_timeout(2000)
+
+        # Select Eleanor Vance from dropdown if available
+        select = page.locator("#patient-select")
+        if await select.is_visible():
+            try:
+                await page.select_option("#patient-select", label="Eleanor Vance (Female, DOB: 1978-04-14)")
+            except Exception:
+                pass
+        await page.wait_for_timeout(1000)
+
         # Check export button
         export_btn = page.locator("#export-record-dropdown-btn")
+        await export_btn.wait_for(state="visible", timeout=15000)
         await export_btn.scroll_into_view_if_needed()
         await export_btn.click()
         await page.wait_for_timeout(500)
-        
+
         # Confirm dropdown options are visible
         pdf_btn = page.locator("#download-pdf-btn")
         json_btn = page.locator("#download-json-btn")

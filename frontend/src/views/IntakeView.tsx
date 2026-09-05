@@ -208,6 +208,7 @@ export const IntakeView: React.FC<Props> = ({ patientId, onIntakeUpdated }) => {
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Current Age</label>
               <input
+                id="intake-age"
                 type="number"
                 required
                 min={0}
@@ -220,6 +221,7 @@ export const IntakeView: React.FC<Props> = ({ patientId, onIntakeUpdated }) => {
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Biological Sex</label>
               <select
+                id="intake-sex"
                 value={sex}
                 onChange={(e) => setSex(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-clinical-500 focus:outline-none bg-white"
@@ -239,6 +241,7 @@ export const IntakeView: React.FC<Props> = ({ patientId, onIntakeUpdated }) => {
             <h3 className="text-sm font-bold text-slate-900">Reported Symptoms</h3>
             <div className="flex gap-2">
               <input
+                id="symptom-input"
                 type="text"
                 placeholder="e.g. Fatigue, Dizziness"
                 value={symptomInput}
@@ -247,6 +250,7 @@ export const IntakeView: React.FC<Props> = ({ patientId, onIntakeUpdated }) => {
                 className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-clinical-500 focus:outline-none"
               />
               <button
+                id="add-symptom-btn"
                 type="button"
                 onClick={addSymptom}
                 className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg"
@@ -281,6 +285,7 @@ export const IntakeView: React.FC<Props> = ({ patientId, onIntakeUpdated }) => {
             <h3 className="text-sm font-bold text-slate-900">Existing Clinical Diagnoses</h3>
             <div className="flex gap-2">
               <input
+                id="condition-input"
                 type="text"
                 placeholder="e.g. Essential Hypertension, Type 2 Diabetes"
                 value={conditionInput}
@@ -289,6 +294,7 @@ export const IntakeView: React.FC<Props> = ({ patientId, onIntakeUpdated }) => {
                 className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-clinical-500 focus:outline-none"
               />
               <button
+                id="add-condition-btn"
                 type="button"
                 onClick={addCondition}
                 className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg"
@@ -333,6 +339,7 @@ export const IntakeView: React.FC<Props> = ({ patientId, onIntakeUpdated }) => {
 
           <div className="flex gap-2">
             <input
+              id="allergy-input"
               type="text"
               placeholder="e.g. Penicillin, Sulfa drugs, Aspirin, Latex"
               value={allergyInput}
@@ -341,6 +348,7 @@ export const IntakeView: React.FC<Props> = ({ patientId, onIntakeUpdated }) => {
               className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
             />
             <button
+              id="add-allergy-btn"
               type="button"
               onClick={addAllergy}
               className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-semibold rounded-lg transition-colors"
@@ -454,6 +462,7 @@ export const IntakeView: React.FC<Props> = ({ patientId, onIntakeUpdated }) => {
         {/* Submit Actions */}
         <div className="flex items-center justify-end gap-3 pt-2">
           <button
+            id="save-intake-btn"
             type="submit"
             disabled={saving}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-clinical-600 hover:bg-clinical-700 active:bg-clinical-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"

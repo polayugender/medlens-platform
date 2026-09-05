@@ -70,6 +70,47 @@ export const ConflictsView: React.FC<Props> = ({
         </button>
       </div>
 
+      {/* Safety Summary Bar */}
+      {!loading && conflicts.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl border border-rose-200 p-4 shadow-sm flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-bold">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xl font-black text-rose-700">
+                {conflicts.filter((c) => c.severity === 'critical').length}
+              </div>
+              <div className="text-xs font-semibold text-slate-600">Critical Conflicts</div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-amber-200 p-4 shadow-sm flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xl font-black text-amber-700">
+                {conflicts.filter((c) => c.severity === 'warning').length}
+              </div>
+              <div className="text-xs font-semibold text-slate-600">Clinical Warnings</div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-clinical-200 p-4 shadow-sm flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-clinical-50 text-clinical-700 flex items-center justify-center font-bold">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xl font-black text-clinical-700">
+                {conflicts.length}
+              </div>
+              <div className="text-xs font-semibold text-slate-600">Total Flagged Items</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="p-12 text-center text-xs text-slate-400">Scanning records for clinical contradictions...</div>
       ) : conflicts.length === 0 ? (

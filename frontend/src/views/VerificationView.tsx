@@ -169,6 +169,8 @@ export const VerificationView: React.FC<Props> = ({
           {/* Batch Verify Button */}
           {unverifiedTests.length > 0 && (
             <button
+              id="verify-all-btn"
+              data-testid="verify-all-btn"
               onClick={verifyAllPending}
               disabled={verifying}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-all disabled:opacity-50"
@@ -219,6 +221,7 @@ export const VerificationView: React.FC<Props> = ({
                   <th className="py-3 px-4">Unit</th>
                   <th className="py-3 px-4">Source Reference Range</th>
                   <th className="py-3 px-4">Computed Flag</th>
+                  <th className="py-3 px-4">AI Confidence</th>
                   <th className="py-3 px-4">Source Snippet (Audit Quote)</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
@@ -247,6 +250,7 @@ export const VerificationView: React.FC<Props> = ({
                       <td className="py-3 px-4">
                         {isEditing ? (
                           <input
+                            id={`edit-value-input-${t.id}`}
                             type="text"
                             value={editForm.value}
                             onChange={(e) => setEditForm({ ...editForm, value: e.target.value })}
@@ -299,6 +303,23 @@ export const VerificationView: React.FC<Props> = ({
                         <FlagBadge flag={t.flag} referenceRange={t.reference_range_raw} />
                       </td>
 
+                      {/* AI Confidence Score */}
+                      <td className="py-3 px-4">
+                        <span
+                          title={`Deterministic LLM JSON schema confidence: ${Math.round((t.confidence_score ?? 1) * 100)}%`}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            (t.confidence_score ?? 1) >= 0.9
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : (t.confidence_score ?? 1) >= 0.75
+                              ? 'bg-sky-50 text-sky-700 border border-sky-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}
+                        >
+                          <Sparkles className="w-2.5 h-2.5" />
+                          {Math.round((t.confidence_score ?? 1) * 100)}%
+                        </span>
+                      </td>
+
                       {/* Raw Snippet Audit Citation */}
                       <td className="py-3 px-4 max-w-xs">
                         <div
@@ -314,6 +335,8 @@ export const VerificationView: React.FC<Props> = ({
                         {isEditing ? (
                           <div className="flex items-center justify-end gap-1.5">
                             <button
+                              id={`save-test-${t.id}`}
+                              data-testid="save-test-btn"
                               onClick={() => saveEdit(t.id)}
                               className="p-1 text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded"
                               title="Save Changes"
@@ -321,6 +344,7 @@ export const VerificationView: React.FC<Props> = ({
                               <Check className="w-3.5 h-3.5" />
                             </button>
                             <button
+                              id={`cancel-test-${t.id}`}
                               onClick={() => setEditingId(null)}
                               className="px-2 py-1 text-slate-500 hover:bg-slate-100 rounded text-[11px]"
                             >
@@ -330,6 +354,8 @@ export const VerificationView: React.FC<Props> = ({
                         ) : (
                           <div className="flex items-center justify-end gap-1.5">
                             <button
+                              id={`verify-test-${t.id}`}
+                              data-testid="verify-single-btn"
                               onClick={() => verifySingle(t)}
                               className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-md font-semibold text-[11px] transition-colors"
                               title="Confirm and verify this test"
@@ -338,6 +364,8 @@ export const VerificationView: React.FC<Props> = ({
                               <span>Verify</span>
                             </button>
                             <button
+                              id={`edit-test-${t.id}`}
+                              data-testid="edit-test-btn"
                               onClick={() => startEditing(t)}
                               className="p-1 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded"
                               title="Edit test values"
@@ -345,6 +373,7 @@ export const VerificationView: React.FC<Props> = ({
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
                             <button
+                              id={`delete-test-${t.id}`}
                               onClick={() => deleteTestItem(t.id)}
                               className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded"
                               title="Delete row"
@@ -364,7 +393,7 @@ export const VerificationView: React.FC<Props> = ({
       </div>
 
       {/* Verified Records Section */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div id="verified-records-section" className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />

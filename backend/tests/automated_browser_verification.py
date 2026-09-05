@@ -31,12 +31,12 @@ async def run_browser_verification():
         print(f"  -> Captured: {s1.name}")
 
         # Check disclaimer banner
-        disclaimer = await page.locator("text=Non-Diagnostic Guardrail").is_visible()
+        disclaimer = await page.locator("text=Non-Diagnostic Guardrail").first.is_visible()
         print(f"  -> Persistent Non-Diagnostic Disclaimer Banner visible: {disclaimer}")
 
         # Step 1b: Navigate to Safety & Conflicts tab for Eleanor Vance
         print("[STEP 1b] Clicking 'Safety & Conflicts' tab for Eleanor Vance...")
-        await page.click("text=Safety & Conflicts")
+        await page.click("#nav-tab-conflicts")
         await page.wait_for_timeout(1000)
 
         # Confirm allergy conflict warning
@@ -59,7 +59,7 @@ async def run_browser_verification():
 
         # Step 2b: Navigate to Review & Verify tab
         print("[STEP 2b] Opening 'Review & Verify' tab...")
-        await page.click("button:has-text('Review & Verify')")
+        await page.click("#nav-tab-verify")
         await page.wait_for_timeout(1200)
 
         s4 = SCREENSHOTS_DIR / "04_arthur_pendelton_review_verify_unverified.png"
@@ -103,8 +103,8 @@ async def run_browser_verification():
         print(f"  -> Captured: {s6.name}")
 
         # Step 3: Side-by-Side Inspector
-        print("[STEP 3] Opening 'Side-by-Side Inspector' tab...")
-        await page.click("button:has-text('Side-by-Side Inspector')")
+        print("[STEP 3] Opening 'Side-by-Side' tab...")
+        await page.click("#nav-tab-side_by_side")
         await page.wait_for_timeout(1500)
 
         # Hover over test item to trigger source snippet highlight
@@ -119,7 +119,7 @@ async def run_browser_verification():
 
         # Step 4: Audit Trail
         print("[STEP 4] Opening 'Audit Trail' tab...")
-        await page.click("button:has-text('Audit Trail')")
+        await page.click("#nav-tab-audit")
         await page.wait_for_timeout(1200)
 
         # Expand top audit log to inspect Before/After diff

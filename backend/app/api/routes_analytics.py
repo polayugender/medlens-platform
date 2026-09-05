@@ -255,6 +255,8 @@ async def export_full_patient_record(
             for r in reports
         ],
         "structured_tests": tests_list,
+        "verified_tests": [t for t in tests_list if t.get("verified")],
         "summary": summary_dict,
-        "audit_logs": audit_list
+        "audit_logs": audit_list,
+        "disclaimer": "This is an organizational summary, not a medical diagnosis. Consult a healthcare professional."
     }

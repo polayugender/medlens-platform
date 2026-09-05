@@ -40,8 +40,21 @@ export const api = {
     return handleResponse<Patient>(res);
   },
 
-  async createPatient(payload: { name: string; dob: string; sex: string }): Promise<Patient> {
-    const res = await fetch(`${API_BASE}/patients`, {
+  async createPatient(
+    payload: {
+      name: string;
+      dob: string;
+      sex: string;
+      phone?: string;
+      abha_id?: string;
+      state?: string;
+      city?: string;
+      emergency_contact?: string;
+    },
+    actor: string = 'User'
+  ): Promise<Patient> {
+    const url = actor ? `${API_BASE}/patients?actor=${encodeURIComponent(actor)}` : `${API_BASE}/patients`;
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -69,9 +82,13 @@ export const api = {
       existing_conditions: string[];
       allergies: string[];
       medications: { name: string; dosage?: string; frequency?: string; route?: string }[];
-    }
+    },
+    actor: string = 'User'
   ): Promise<IntakeRecord> {
-    const res = await fetch(`${API_BASE}/patients/${patientId}/intake`, {
+    const url = actor
+      ? `${API_BASE}/patients/${patientId}/intake?actor=${encodeURIComponent(actor)}`
+      : `${API_BASE}/patients/${patientId}/intake`;
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -237,5 +254,16 @@ export const api = {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  },
+
+  // System Management
+  async resetSystem(): Promise<{ status: string; message: string }> {
+    const res = await fetch(`${API_BASE}/system/reset`, { method: 'POST' });
+    return handleResponse<{ status: string; message: string }>(res);
+  },
+
+  async seedDemoData(): Promise<{ status: string; message: string }> {
+    const res = await fetch(`${API_BASE}/system/seed-demo`, { method: 'POST' });
+    return handleResponse<{ status: string; message: string }>(res);
   },
 };
