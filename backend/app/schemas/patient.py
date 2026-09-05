@@ -4,8 +4,10 @@ from pydantic import BaseModel
 
 class PatientBase(BaseModel):
     name: str
-    dob: date
-    sex: str
+    username: Optional[str] = None
+    email: Optional[str] = None
+    dob: Optional[date] = None
+    sex: Optional[str] = None
     phone: Optional[str] = None
     abha_id: Optional[str] = None
     state: Optional[str] = None
@@ -17,6 +19,8 @@ class PatientCreate(PatientBase):
 
 class PatientUpdate(BaseModel):
     name: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
     dob: Optional[date] = None
     sex: Optional[str] = None
     phone: Optional[str] = None

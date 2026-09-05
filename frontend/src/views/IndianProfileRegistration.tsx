@@ -1,12 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
   ArrowLeft,
-  Smartphone,
-  MessageSquare,
   Sparkles,
   HeartPulse,
   User,
@@ -26,9 +24,10 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client';
 import { Patient, IntakeRecord } from '../types';
+import { AuthView } from '../components/AuthView';
 
 interface Props {
-  onComplete: (patient: Patient, intake: IntakeRecord, targetTab: 'upload' | 'record') => void;
+  onComplete: (patient: Patient, intake: IntakeRecord | null, targetTab: 'upload' | 'record') => void;
   onCancel: () => void;
 }
 
@@ -81,16 +80,8 @@ interface MedRow {
 export const IndianProfileRegistration: React.FC<Props> = ({ onComplete, onCancel }) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
-  // Step 1: Mobile & OTP State
+  // Step 1: Authentication & Patient State
   const [phone, setPhone] = useState('');
-  const [otpChannel, setOtpChannel] = useState<'sms' | 'whatsapp'>('sms');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpValues, setOtpValues] = useState<string[]>(['', '', '', '', '', '']);
-  const [countdown, setCountdown] = useState(30);
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [otpSuccess, setOtpSuccess] = useState(false);
-  const otpInputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   // Step 2: Demographics State
   const [name, setName] = useState('');
@@ -115,7 +106,7 @@ export const IndianProfileRegistration: React.FC<Props> = ({ onComplete, onCance
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Step 4: Health Card Result
+  // Step 4: Health Card Result / Created Patient
   const [createdPatient, setCreatedPatient] = useState<Patient | null>(null);
   const [createdIntake, setCreatedIntake] = useState<IntakeRecord | null>(null);
 
@@ -143,17 +134,6 @@ export const IndianProfileRegistration: React.FC<Props> = ({ onComplete, onCance
     }
   }, [state]);
 
-  // Countdown timer for OTP
-  useEffect(() => {
-    let timer: any = null;
-    if (otpSent && countdown > 0) {
-      timer = setInterval(() => setCountdown((c) => c - 1), 1000);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [otpSent, countdown]);
-
   // ABHA ID auto-formatter (XX-XXXX-XXXX-XXXX)
   const handleAbhaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, '').slice(0, 14);
@@ -163,80 +143,6 @@ export const IndianProfileRegistration: React.FC<Props> = ({ onComplete, onCance
     if (raw.length > 6) parts.push(raw.slice(6, 10));
     if (raw.length > 10) parts.push(raw.slice(10, 14));
     setAbhaId(parts.join('-'));
-  };
-
-  // Step 1: Send OTP
-  const handleSendOtp = () => {
-    const cleanPhone = phone.trim();
-    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-      setOtpError('Please enter a valid 10-digit Indian mobile number starting with 6-9');
-      return;
-    }
-    setOtpError(null);
-    setOtpSent(true);
-    setCountdown(30);
-  };
-
-  // Step 1: Quick Fill Demo OTP
-  const handleQuickFillDemoOtp = () => {
-    setOtpValues(['4', '8', '2', '9', '1', '0']);
-    setOtpError(null);
-  };
-
-  // Handle individual OTP input
-  const handleOtpInput = (index: number, val: string) => {
-    if (!/^\d*$/.test(val)) return;
-    const newValues = [...otpValues];
-    newValues[index] = val.slice(-1);
-    setOtpValues(newValues);
-
-    // Auto-advance
-    if (val && index < 5) {
-      otpInputsRef.current[index + 1]?.focus();
-    }
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otpValues[index] && index > 0) {
-      otpInputsRef.current[index - 1]?.focus();
-    }
-  };
-
-  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (pasted) {
-      const arr = pasted.split('');
-      const newValues = [...otpValues];
-      for (let i = 0; i < 6; i++) {
-        newValues[i] = arr[i] || '';
-      }
-      setOtpValues(newValues);
-      if (arr.length === 6) {
-        otpInputsRef.current[5]?.focus();
-      } else {
-        otpInputsRef.current[arr.length]?.focus();
-      }
-    }
-  };
-
-  // Verify OTP
-  const handleVerifyOtp = () => {
-    const entered = otpValues.join('');
-    if (entered.length < 6) {
-      setOtpError('Please enter the complete 6-digit OTP');
-      return;
-    }
-    setIsVerifyingOtp(true);
-    setOtpError(null);
-
-    setTimeout(() => {
-      setIsVerifyingOtp(false);
-      setOtpSuccess(true);
-      setTimeout(() => {
-        setStep(2);
-      }, 500);
-    }, 400);
   };
 
   // Step 2 Validation & Next
@@ -354,24 +260,42 @@ export const IndianProfileRegistration: React.FC<Props> = ({ onComplete, onCance
     setSubmitError(null);
 
     try {
-      // 1. Create Patient with Indian Demographics
+      // 1. Create or update Patient with Indian Demographics
       const emergencyContactString = emergencyName
         ? `${emergencyName} (${emergencyRelation})${emergencyPhone ? ` - ${emergencyPhone}` : ''}`
         : undefined;
 
-      const newPatient = await api.createPatient(
-        {
-          name: name.trim(),
-          dob,
-          sex,
-          phone: `+91 ${phone}`,
-          abha_id: abhaId.trim() || undefined,
-          state,
-          city,
-          emergency_contact: emergencyContactString,
-        },
-        'patient_self_service'
-      );
+      let patientRecord: Patient;
+      if (createdPatient?.id) {
+        patientRecord = await api.updatePatient(
+          createdPatient.id,
+          {
+            name: name.trim(),
+            dob,
+            sex,
+            phone: phone ? (phone.startsWith('+91') ? phone : `+91 ${phone}`) : undefined,
+            abha_id: abhaId.trim() || undefined,
+            state,
+            city,
+            emergency_contact: emergencyContactString,
+          },
+          'patient_self_service'
+        );
+      } else {
+        patientRecord = await api.createPatient(
+          {
+            name: name.trim(),
+            dob,
+            sex,
+            phone: phone ? (phone.startsWith('+91') ? phone : `+91 ${phone}`) : undefined,
+            abha_id: abhaId.trim() || undefined,
+            state,
+            city,
+            emergency_contact: emergencyContactString,
+          },
+          'patient_self_service'
+        );
+      }
 
       // 2. Submit Baseline Clinical Intake Record
       const validMeds = medications
@@ -384,7 +308,7 @@ export const IndianProfileRegistration: React.FC<Props> = ({ onComplete, onCance
         }));
 
       const newIntake = await api.submitIntake(
-        newPatient.id,
+        patientRecord.id,
         {
           age: calculatedAge ?? 30,
           sex,
@@ -396,7 +320,7 @@ export const IndianProfileRegistration: React.FC<Props> = ({ onComplete, onCance
         'patient_self_service'
       );
 
-      setCreatedPatient(newPatient);
+      setCreatedPatient(patientRecord);
       setCreatedIntake(newIntake);
       setStep(4);
     } catch (err: any) {
@@ -466,9 +390,9 @@ export const IndianProfileRegistration: React.FC<Props> = ({ onComplete, onCance
                 {step > 1 ? <Check className="w-3.5 h-3.5" /> : '1'}
               </div>
               <div>
-                <div className="text-xs font-bold">Mobile (+91)</div>
+                <div className="text-xs font-bold">Authentication</div>
                 <div className="text-[10px] hidden sm:block text-slate-500">
-                  OTP Verification
+                  Account & Security
                 </div>
               </div>
             </div>
@@ -543,199 +467,22 @@ export const IndianProfileRegistration: React.FC<Props> = ({ onComplete, onCance
       </div>
 
       {/* ──────────────────────────────────────────────
-          STEP 1: INDIAN MOBILE VERIFICATION (+91)
+          STEP 1: SECURE AUTHENTICATION (SIGN IN / REGISTER)
          ────────────────────────────────────────────── */}
       {step === 1 && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6 animate-fade-in-up">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-slate-900">Step 1: Indian Mobile Verification</h3>
-              <span className="px-2 py-0.5 bg-sky-100 text-sky-800 text-[10px] font-semibold rounded-full">
-                [User Input] Provenance
-              </span>
-            </div>
-            <p className="text-xs text-slate-500">
-              Verify the primary Indian mobile number (+91) for electronic health notifications and ABHA linkage.
-            </p>
-          </div>
-
-          {/* Phone Input Box */}
-          <div className="max-w-md space-y-3">
-            <label className="block text-xs font-bold text-slate-700">
-              Indian Mobile Number <span className="text-rose-500">*</span>
-            </label>
-            <div className="flex rounded-xl shadow-sm border border-slate-300 focus-within:ring-2 focus-within:ring-clinical-500 focus-within:border-clinical-500 overflow-hidden">
-              <span className="inline-flex items-center px-3.5 bg-slate-100 border-r border-slate-300 text-slate-700 text-sm font-semibold gap-1.5 select-none">
-                <span>🇮🇳</span>
-                <span>+91</span>
-              </span>
-              <input
-                id="indian-mobile-input"
-                type="tel"
-                maxLength={10}
-                value={phone}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                  setPhone(val);
-                }}
-                disabled={otpSent}
-                placeholder="98765 43210"
-                className="flex-1 px-4 py-2.5 text-sm font-semibold tracking-wider text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
-              />
-            </div>
-
-            {/* OTP Channel Selection */}
-            {!otpSent && (
-              <div className="pt-2 space-y-2">
-                <span className="text-[11px] font-semibold text-slate-600">
-                  Receive OTP via:
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setOtpChannel('sms')}
-                    className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
-                      otpChannel === 'sms'
-                        ? 'bg-clinical-50 border-clinical-500 text-clinical-800 shadow-sm'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-clinical-600" />
-                    <span>SMS Gateway</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setOtpChannel('whatsapp')}
-                    className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
-                      otpChannel === 'whatsapp'
-                        ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-sm'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>WhatsApp</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Action to Request OTP */}
-            {!otpSent ? (
-              <button
-                id="send-otp-btn"
-                type="button"
-                onClick={handleSendOtp}
-                className="w-full mt-3 py-2.5 px-4 rounded-xl bg-clinical-600 hover:bg-clinical-700 active:bg-clinical-800 text-white font-bold text-xs shadow-md shadow-clinical-600/20 transition-all flex items-center justify-center gap-2"
-              >
-                <span>Send 6-Digit OTP</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              /* 6-Digit OTP UI */
-              <div className="pt-3 space-y-4 animate-fade-in-up">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-slate-600">
-                    Enter OTP sent to <span className="font-bold text-slate-900">+91 {phone}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOtpSent(false);
-                      setOtpValues(['', '', '', '', '', '']);
-                    }}
-                    className="text-[11px] text-clinical-600 hover:underline font-semibold"
-                  >
-                    Change Number
-                  </button>
-                </div>
-
-                {/* 6-box inputs */}
-                <div className="flex items-center justify-between gap-2 max-w-sm mx-auto">
-                  {otpValues.map((digit, idx) => (
-                    <input
-                      key={idx}
-                      ref={(el) => (otpInputsRef.current[idx] = el)}
-                      id={`otp-box-${idx}`}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handleOtpInput(idx, e.target.value)}
-                      onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                      onPaste={handleOtpPaste}
-                      className="w-11 h-12 text-center text-lg font-black text-slate-900 border-2 rounded-xl border-slate-200 focus:border-clinical-600 focus:ring-2 focus:ring-clinical-500/20 focus:outline-none transition-all"
-                    />
-                  ))}
-                </div>
-
-                {/* Demo Quick Fill Helper */}
-                <div className="flex items-center justify-between pt-1">
-                  <button
-                    id="quick-demo-otp-btn"
-                    type="button"
-                    onClick={handleQuickFillDemoOtp}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold hover:bg-amber-100 transition-colors"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Quick Demo OTP: 482910</span>
-                  </button>
-
-                  <div className="text-[11px] text-slate-500">
-                    {countdown > 0 ? (
-                      <span>Resend in {countdown}s</span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleSendOtp}
-                        className="text-clinical-600 font-semibold hover:underline"
-                      >
-                        Resend OTP
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Verify OTP Button */}
-                <button
-                  id="verify-otp-btn"
-                  type="button"
-                  onClick={handleVerifyOtp}
-                  disabled={isVerifyingOtp || otpSuccess}
-                  className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 ${
-                    otpSuccess
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-clinical-600 hover:bg-clinical-700 active:bg-clinical-800 text-white shadow-clinical-600/20'
-                  }`}
-                >
-                  {isVerifyingOtp ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Verifying Telecom Token...</span>
-                    </>
-                  ) : otpSuccess ? (
-                    <>
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Mobile Verified!</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>Verify OTP & Continue</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-
-            {otpError && (
-              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-medium flex items-center gap-2">
-                <AlertTriangle className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
-                <span>{otpError}</span>
-              </div>
-            )}
-          </div>
-        </div>
+        <AuthView
+          onRegisterSuccess={(registeredPatient) => {
+            setCreatedPatient(registeredPatient);
+            if (registeredPatient.name) setName(registeredPatient.name);
+            if (registeredPatient.phone) {
+              setPhone(registeredPatient.phone.replace('+91 ', '').trim());
+            }
+            setStep(2);
+          }}
+          onLoginSuccess={(loggedInPatient) => {
+            onComplete(loggedInPatient, null, 'record');
+          }}
+        />
       )}
 
       {/* ──────────────────────────────────────────────
@@ -1536,8 +1283,6 @@ export const IndianProfileRegistration: React.FC<Props> = ({ onComplete, onCance
               onClick={() => {
                 setStep(1);
                 setPhone('');
-                setOtpSent(false);
-                setOtpValues(['', '', '', '', '', '']);
                 setName('');
                 setDob('');
                 setAbhaId('');

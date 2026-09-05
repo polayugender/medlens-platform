@@ -3,6 +3,7 @@ import os
 import shutil
 from datetime import date, datetime, timezone
 from pathlib import Path
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import init_db, AsyncSessionLocal
 from app.config import settings
@@ -28,22 +29,18 @@ async def seed():
     samples_dir.mkdir(parents=True, exist_ok=True)
     
     cmp_path = samples_dir / "sample_cmp_report.pdf"
-    cbc_path = samples_dir / "sample_cbc_report.pdf"
-    lipid_path = samples_dir / "sample_lipid_panel.pdf"
-
-    print("[PDF] Generating realistic clinical PDFs via ReportLab...")
     create_cmp_report(cmp_path)
+    cbc_path = samples_dir / "sample_cbc_report.pdf"
     create_cbc_report(cbc_path)
+    lipid_path = samples_dir / "sample_lipid_panel.pdf"
     create_lipid_report(lipid_path)
 
     async with AsyncSessionLocal() as db:
-        # Check if already seeded
-        existing = await db.execute(Patient.__table__.select())
-        if existing.first():
-            print("Database already contains records. Clearing for fresh seed...")
-            for table in [AuditLog, ExtractedTest, Summary, MedicalReport, IntakeRecord, Patient]:
-                await db.execute(table.__table__.delete())
-            await db.commit()
+        # Check if demo patients already exist
+        existing_eleanor = await db.execute(select(Patient).where(Patient.name == "Eleanor Vance"))
+        if existing_eleanor.scalars().first():
+            print("Demo patients already seeded. Preserving existing records.")
+            return
 
         print("[PATIENT 1] Creating Patient 1: Eleanor Vance...")
         p1 = Patient(

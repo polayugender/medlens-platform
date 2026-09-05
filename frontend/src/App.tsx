@@ -44,6 +44,7 @@ import { IndianProfileRegistration } from './views/IndianProfileRegistration';
 export function App() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [currentUser, setCurrentUser] = useState<Patient | null>(null);
   const [activeTab, setActiveTab] = useState<string>('record');
   const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
   const [isIndianRegOpen, setIsIndianRegOpen] = useState(false);
@@ -79,7 +80,20 @@ export function App() {
   };
 
   useEffect(() => {
-    loadPatients();
+    const initAuthAndData = async () => {
+      try {
+        const user = await api.getCurrentUser();
+        if (user) {
+          setCurrentUser(user);
+          await loadPatients(user.id);
+        } else {
+          await loadPatients();
+        }
+      } catch {
+        await loadPatients();
+      }
+    };
+    initAuthAndData();
   }, []);
 
   // Fetch active patient full record
@@ -208,6 +222,7 @@ export function App() {
       <Navbar
         patients={patients}
         selectedPatient={selectedPatient}
+        currentUser={currentUser}
         onSelectPatient={(p) => {
           setSelectedPatient(p);
           setIsIndianRegOpen(false);
@@ -215,6 +230,13 @@ export function App() {
         }}
         onOpenNewPatientModal={() => setIsNewPatientModalOpen(true)}
         onOpenIndianRegistration={() => setIsIndianRegOpen(true)}
+        onLogout={() => {
+          api.logout();
+          setCurrentUser(null);
+          setSystemNotice('Successfully signed out of MedLens.');
+          setTimeout(() => setSystemNotice(null), 4000);
+          loadPatients();
+        }}
         onResetData={handleResetData}
         onLoadDemo={handleLoadDemo}
         conflictCount={conflictCount}
@@ -245,11 +267,12 @@ export function App() {
           <IndianProfileRegistration
             onComplete={(newPatient, newIntake, targetTab) => {
               setIsIndianRegOpen(false);
+              setCurrentUser(newPatient);
               setPatients((prev) => [newPatient, ...prev.filter((p) => p.id !== newPatient.id)]);
               setSelectedPatient(newPatient);
-              setIntake(newIntake);
+              if (newIntake) setIntake(newIntake);
               setActiveTab(targetTab);
-              setSystemNotice(`Clinical profile created for ${newPatient.name} (ABHA: ${newPatient.abha_id || 'Not Linked'}).`);
+              setSystemNotice(`Clinical profile active for ${newPatient.name} (ABHA: ${newPatient.abha_id || 'Not Linked'}).`);
               setTimeout(() => setSystemNotice(null), 6000);
             }}
             onCancel={() => setIsIndianRegOpen(false)}

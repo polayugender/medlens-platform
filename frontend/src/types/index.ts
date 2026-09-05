@@ -12,6 +12,8 @@ export interface MedicationItem {
 export interface Patient {
   id: string;
   name: string;
+  username?: string;
+  email?: string;
   dob: string;
   sex: string;
   phone?: string;
@@ -21,6 +23,27 @@ export interface Patient {
   emergency_contact?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  patient: Patient;
+  message?: string;
+}
+
+export interface RegisterPayload {
+  name: string;
+  username: string;
+  email?: string;
+  phone?: string;
+  password: string;
+}
+
+export interface LoginPayload {
+  username_or_email: string;
+  password: string;
+  remember_me?: boolean;
 }
 
 export interface IntakeRecord {

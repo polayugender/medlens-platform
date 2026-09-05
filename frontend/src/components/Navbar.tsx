@@ -10,16 +10,20 @@ import {
   Zap,
   RotateCcw,
   Sparkles,
-  Trash2
+  Trash2,
+  LogOut,
+  KeyRound
 } from 'lucide-react';
 import { Patient } from '../types';
 
 interface Props {
   patients: Patient[];
   selectedPatient: Patient | null;
+  currentUser?: Patient | null;
   onSelectPatient: (patient: Patient) => void;
   onOpenNewPatientModal: () => void;
   onOpenIndianRegistration?: () => void;
+  onLogout?: () => void;
   onResetData?: () => void;
   onLoadDemo?: () => void;
   conflictCount: number;
@@ -29,9 +33,11 @@ interface Props {
 export const Navbar: React.FC<Props> = ({
   patients,
   selectedPatient,
+  currentUser,
   onSelectPatient,
   onOpenNewPatientModal,
   onOpenIndianRegistration,
+  onLogout,
   onResetData,
   onLoadDemo,
   conflictCount,
@@ -116,17 +122,46 @@ export const Navbar: React.FC<Props> = ({
               </div>
             </div>
 
-            {/* Indian Onboarding Button */}
-            {onOpenIndianRegistration && (
-              <button
-                id="nav-indian-reg-btn"
-                onClick={onOpenIndianRegistration}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-emerald-600 hover:from-amber-600 hover:to-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all"
-                title="Register Indian Patient (+91 / ABHA)"
+            {/* User Account / Auth Status */}
+            {currentUser ? (
+              <div
+                id="nav-user-badge"
+                className="flex items-center gap-2 bg-clinical-50/90 border border-clinical-200/90 pl-2.5 pr-1.5 py-1 rounded-xl shadow-xs"
               >
-                <span>🇮🇳</span>
-                <span className="hidden md:inline">Indian Profile</span>
-              </button>
+                <div className="w-6 h-6 rounded-full bg-clinical-600 text-white text-[11px] font-bold flex items-center justify-center">
+                  {currentUser.username ? currentUser.username.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div className="hidden md:block text-left">
+                  <div className="text-xs font-bold text-slate-800 leading-tight">
+                    {currentUser.name}
+                  </div>
+                  <div className="text-[10px] text-clinical-600 font-mono">
+                    @{currentUser.username || 'patient'}
+                  </div>
+                </div>
+                {onLogout && (
+                  <button
+                    id="nav-logout-btn"
+                    onClick={onLogout}
+                    title="Sign Out"
+                    className="ml-1 p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              onOpenIndianRegistration && (
+                <button
+                  id="nav-auth-btn"
+                  onClick={onOpenIndianRegistration}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-clinical-600 to-clinical-700 hover:from-clinical-700 hover:to-clinical-800 text-white text-xs font-bold rounded-lg shadow-sm transition-all"
+                  title="Sign In or Register New Patient"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Sign In / Register</span>
+                </button>
+              )
             )}
 
             {/* New Patient Button */}
